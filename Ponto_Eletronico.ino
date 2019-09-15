@@ -427,9 +427,10 @@ void novaPessoa(String matricula)
   EEPROM.commit();
 }
 
+// Sempre le o endereço 0 que vai ser responsavel por armazenar a quantida de pessoas que fora cadastradas
 int quantidadePessoas()
 {
-  return EEPROM.read(0); // Sempre le o endereço 0 que vai ser responsavel por armazenar a quantida de pessoas que fora cadastradas
+  return EEPROM.read(0);
 }
 
 // imprimi todo mundo
@@ -487,7 +488,6 @@ bool verificaFuncionario(char *matricula)
       Serial.println("Entrei");
       pessoaEncontrada = 1;
       preenchePonto(matricula);
-
       imprimeAll();
       return true;
     }
@@ -496,6 +496,7 @@ bool verificaFuncionario(char *matricula)
   pessoaNaoEncontrada = 1;
 }
 
+//Logica de preenchePonto
 void preenchePonto(char *matricula)
 {
   bool needPreenchimento = true;
@@ -565,6 +566,7 @@ void preenchePonto(char *matricula)
   }
 }
 
+// Limpa toda a memória
 void limpaTudo()
 {
   for (int i = 0; i < 512; i++)
