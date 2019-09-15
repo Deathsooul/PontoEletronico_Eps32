@@ -33,6 +33,9 @@ char tecla_pressionada; //VERIFICA SE ALGUMA DAS TECLAS FOI PRESSIONADA
 bool cadastro = 0;
 bool batePonto = 0;
 bool mostraMensagem = 0;
+bool pessoaNaoEncontrada = 0;
+bool pessoaEncontrada = 0;
+uint32_t unixAgora = 0; // Variavel para que o RTC nao se perca durante execução das tasks
 
 static int Nucleo = 1; // Nucleo que as Task vao rolar
 
@@ -91,7 +94,7 @@ void setup()
   Wire.begin();
   // Inicia Serial
   Serial.begin(115200);
-  Serial.print("Iniciei minha Serial");
+  Serial.println("Iniciei minha Serial");
   delay(1000);
   // initialize LCD
   lcd.init();
@@ -115,12 +118,23 @@ void setup()
   }
 
   //Inicia a EEPROM
-  EEPROM.begin(64);
+  EEPROM.begin(512);
 
-  for (int ii = 0; ii < 10; ii++)
-  {
-    Serial.println(EEPROM.readString(ii));
-  }
+  limpaTudo();
+
+  // Serial.println(EEPROM.read(0));
+
+  // novaPessoa("6969");
+  // novaPessoa("1111");
+  // novaPessoa("9999");
+  // novaPessoa("2222");
+
+  // imprimeAll();
+
+  // while (1)
+  // {
+  //   /* code */
+  // }
 
   //Tarefas
   xTaskCreatePinnedToCore(Tarefa1, "Tarefa1", 4096, NULL, 2, NULL, Nucleo);
@@ -143,10 +157,6 @@ void leTeclado()
 
     while (x == 0)
     {
-      // lcd.clear();
-      // lcd.setCursor(0, 1);
-      Serial.print("To aqui");
-      // lcd.print("Insira Matricula");
       batePonto = 1;
 
       for (i = 0; i <= 3; i++)
@@ -163,9 +173,8 @@ void leTeclado()
     batePonto = 0;
     // lcd.clear();
     funcionario[4] = '\0';
-    Serial.println("Quero Bate o ponto !?");
 
-    verificaEEPROM(funcionario); // funcao Rahuana busca na EEPROM
+    verificaFuncionario(funcionario);
   }
   if (teclaClicada == 'C')
   {
@@ -193,42 +202,64 @@ void leTeclado()
     }
     cadastro = 0;
     // lcd.clear();
-    funcionario[4] = '\0'; //Setamos \0 no FINAL da String pra a funcao .readString() saber aonde termina o registro
+
     //SALVA NOVO FUNCIONARIO
-    EEPROM.writeString(address, funcionario);
-    delay(500);
-    EEPROM.commit();
-    address = address + 4;
-    Serial.println("Nego cadastrado !?");
-    //Le funcionario
-    Serial.println(EEPROM.readString(0));
-    Serial.println("Verificando memorias pra frente");
+    novaPessoa(funcionario);
+    imprimeAll();
+
+    // EEPROM.writeString(address, funcionario);
+    // delay(500);
+    // EEPROM.commit();
+    // address = address + 4;
+    // Serial.println("Nego cadastrado !?");
+    // //Le funcionario
+    // Serial.println(EEPROM.readString(0));
+    // Serial.println("Verificando memorias pra frente");
   }
 }
 
 void mostraDataHora()
 {
   DateTime now = rtc.now();
+  unixAgora = now.unixtime();
   if (mostraMensagem == 1)
   {
     mensagemRecepcao();
     delay(1000);
     mostraMensagem = 0;
+    lcd.clear();
+  }
+  else if (pessoaNaoEncontrada == 1)
+  {
+    mostraNaoEncontrada();
+    delay(1000);
+    pessoaNaoEncontrada = 0;
+    lcd.clear();
+  }
+  else if (pessoaEncontrada == 1)
+  {
+    encontrada();
+    delay(1000);
+    pessoaEncontrada = 0;
+    lcd.clear();
   }
   else
   {
     while (cadastro == 1)
     {
+
       lcd.setCursor(0, 1);
       lcd.print("Cadastre!");
     }
     while (batePonto == 1)
     {
+
       lcd.setCursor(0, 1);
       lcd.print("Matricula:");
     }
 
     lcd.setCursor(0, 0);
+
     lcd.print(now.hour(), DEC);
     lcd.print(':');
     lcd.print(now.minute(), DEC);
@@ -236,6 +267,7 @@ void mostraDataHora()
     lcd.print(now.second(), DEC);
 
     lcd.setCursor(0, 1);
+
     lcd.print(now.year(), DEC);
     lcd.print('/');
     lcd.print(now.month(), DEC);
@@ -243,6 +275,13 @@ void mostraDataHora()
     lcd.print(now.day(), DEC);
   }
 }
+
+void mostraNaoEncontrada()
+{
+
+  naoEcontrada();
+}
+
 void salvaEEPROM(String valor)
 {
   Serial.println("Salvando dado na EEPROM - Endereco 0: ");
@@ -251,6 +290,7 @@ void salvaEEPROM(String valor)
   delay(500);
   EEPROM.commit();
 }
+
 boolean verificaEEPROM(String valor)
 {
   Serial.print("Lendo EEPROM: ");
@@ -321,7 +361,6 @@ void imprimeMSG()
 
 void mensagemRecepcao()
 {
-
   DateTime now = rtc.now();
   if (now.hour() >= 12 && now.hour() < 18)
   {
@@ -343,5 +382,194 @@ void mensagemRecepcao()
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(teste);
+  }
+}
+
+void naoEcontrada()
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Pessoa nao");
+  lcd.setCursor(0, 1);
+  lcd.print("Encontrada!");
+}
+
+void encontrada()
+{
+  mensagemRecepcao();
+}
+
+//funcao que sempre passa a posição do proximo bloco de salvamento
+int pessoaEEPROM(int x)
+{
+  return (x * 24) + 1;
+}
+// funcao de cadastro de pessoa
+void novaPessoa(String matricula)
+{
+  int quantidadeDePessoas = quantidadePessoas();
+  int enderecoParaGravar;
+  enderecoParaGravar = pessoaEEPROM(quantidadeDePessoas);
+
+  Serial.print("ESTOU GRAVANDO EM:");
+  Serial.println(enderecoParaGravar);
+  //Salvar nome
+  for (int i = 0; i <= 3; i++)
+  {
+    EEPROM.write((enderecoParaGravar + i), matricula[i]);
+  }
+
+  for (int j = 4; j <= 23; j++)
+  {
+    EEPROM.write((enderecoParaGravar + j), 'A'); // Salva tudo como 0 por a pessoa estar sendo cadastrada
+  }
+  EEPROM.write(0, (quantidadeDePessoas + 1)); // Incrementa a quantidade de pessoas
+  EEPROM.commit();
+}
+
+int quantidadePessoas()
+{
+  return EEPROM.read(0); // Sempre le o endereço 0 que vai ser responsavel por armazenar a quantida de pessoas que fora cadastradas
+}
+
+// imprimi todo mundo
+void imprimeAll()
+{
+  int quantidadedePessoas = quantidadePessoas();
+  for (int i = 0; i < quantidadedePessoas; i++)
+  {
+    int posicao = pessoaEEPROM(i);
+    char buffMatricula[5];
+    char buffEntrada[11];
+    char buffSaida[11];
+
+    for (int j = 0; j <= 3; j++)
+    {
+      buffMatricula[j] = EEPROM.read(posicao + j);
+    }
+    Serial.print("Matricula: ");
+    buffMatricula[4] = '\0';
+    Serial.println(buffMatricula);
+    for (int j = 4; j <= 13; j++)
+    {
+      buffEntrada[j - 4] = EEPROM.read(posicao + j);
+    }
+    Serial.print("Entrada: ");
+    buffEntrada[10] = '\0';
+    Serial.println(buffEntrada);
+
+    for (int j = 14; j <= 23; j++)
+    {
+      buffSaida[j - 14] = EEPROM.read(posicao + j);
+    }
+    Serial.print("Saida: ");
+    buffSaida[10] = '\0';
+    Serial.println(buffSaida);
+  }
+}
+
+bool verificaFuncionario(char *matricula)
+{
+  int quantidadedePessoas = quantidadePessoas();
+  for (int i = 0; i < quantidadedePessoas; i++)
+  {
+    int posicao = pessoaEEPROM(i);
+    char buffMatricula[5];
+
+    for (int j = 0; j <= 3; j++)
+    {
+      buffMatricula[j] = EEPROM.read(posicao + j);
+    }
+    buffMatricula[4] = '\0';
+
+    if (strcmp(matricula, buffMatricula) == 0)
+    {
+      Serial.println("Entrei");
+      pessoaEncontrada = 1;
+      preenchePonto(matricula);
+
+      imprimeAll();
+      return true;
+    }
+  }
+  Serial.print("Pessoa nao encontrada");
+  pessoaNaoEncontrada = 1;
+}
+
+void preenchePonto(char *matricula)
+{
+  bool needPreenchimento = true;
+
+  int quantidadedePessoas = quantidadePessoas();
+  for (int i = 0; i < quantidadedePessoas; i++)
+  {
+    int posicao = pessoaEEPROM(i);
+    char buffMatricula[5];
+
+    for (int j = 0; j <= 3; j++)
+    {
+      buffMatricula[j] = EEPROM.read(posicao + j);
+    }
+    buffMatricula[4] = '\0';
+    Serial.println(matricula);
+    Serial.println(buffMatricula);
+
+    if (strcmp(matricula, buffMatricula) == 0)
+    {
+      char buffEntrada[11];
+      char buffSaida[11];
+
+      //Varredura da entrada e saida
+      for (int j = 4; j <= 13; j++)
+      {
+        buffEntrada[j - 4] = EEPROM.read(posicao + j);
+      }
+      buffEntrada[10] = '\0';
+
+      for (int j = 14; j <= 23; j++)
+      {
+        buffSaida[j - 14] = EEPROM.read(posicao + j);
+      }
+      buffSaida[10] = '\0';
+
+      char buff[11];
+      itoa(unixAgora, buff, 10);
+
+      if (buffEntrada[0] == 'A')
+      {
+        //bate ponto de entrada
+        for (int j = 4; j <= 13; j++)
+        {
+          EEPROM.write(posicao + j, buff[j - 4]);
+        }
+        EEPROM.commit();
+        needPreenchimento = false;
+      }
+      else if (buffSaida[0] == 'A')
+      {
+        //Bate ponto de saida
+        for (int j = 14; j <= 23; j++)
+        {
+          EEPROM.write(posicao + j, buff[j - 14]);
+        }
+        EEPROM.commit();
+        needPreenchimento = false;
+      }
+    }
+  }
+
+  if (needPreenchimento)
+  {
+    novaPessoa(matricula);
+    preenchePonto(matricula);
+  }
+}
+
+void limpaTudo()
+{
+  for (int i = 0; i < 512; i++)
+  {
+    EEPROM.write(i, 0);
+    EEPROM.commit();
   }
 }
