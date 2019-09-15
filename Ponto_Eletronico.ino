@@ -37,6 +37,14 @@ bool pessoaNaoEncontrada = 0;
 bool pessoaEncontrada = 0;
 uint32_t unixAgora = 0; // Variavel para que o RTC nao se perca durante execução das tasks
 
+int Ano;
+int Mes;
+int Dia;
+int Hora;
+int Min;
+
+bool mudaHoraPff = false;
+
 static int Nucleo = 1; // Nucleo que as Task vao rolar
 
 char data_formatada[64];
@@ -106,7 +114,7 @@ void setup()
     while (1)
       ;
   }
-
+  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   if (!rtc.isrunning())
   {
     Serial.println("Deu alguma zica");
@@ -137,12 +145,25 @@ void setup()
   // }
 
   //Tarefas
-  xTaskCreatePinnedToCore(Tarefa1, "Tarefa1", 4096, NULL, 2, NULL, Nucleo);
-  xTaskCreatePinnedToCore(Tarefa2, "Tarefa2", 4096, NULL, 2, NULL, Nucleo);
+  xTaskCreatePinnedToCore(Tarefa1, "Tarefa1", 4096, NULL, 1, NULL, Nucleo);
+  xTaskCreatePinnedToCore(Tarefa2, "Tarefa2", 4096, NULL, 1, NULL, Nucleo);
 }
 
 void loop()
 {
+
+  // send data only when you receive data:
+  if (Serial.available() > 0)
+  {
+    Serial.println("Oi to aqui");
+    // read the incoming byte:
+    char incomingByte = Serial.read();
+
+    if (incomingByte == 'D')
+    {
+      novaHoraData();
+    }
+  }
 }
 
 void leTeclado()
@@ -216,10 +237,20 @@ void leTeclado()
     // Serial.println(EEPROM.readString(0));
     // Serial.println("Verificando memorias pra frente");
   }
+  if (teclaClicada == 'C')
+  {
+    imprimeAll();
+  }
 }
 
 void mostraDataHora()
 {
+  if (mudaHoraPff == true)
+  {
+    rtc.adjust(DateTime(Ano, Mes, Dia, Hora, Min, 0));
+
+    mudaHoraPff = false;
+  }
   DateTime now = rtc.now();
   unixAgora = now.unixtime();
   if (mostraMensagem == 1)
@@ -278,7 +309,6 @@ void mostraDataHora()
 
 void mostraNaoEncontrada()
 {
-
   naoEcontrada();
 }
 
@@ -291,6 +321,7 @@ void salvaEEPROM(String valor)
   EEPROM.commit();
 }
 
+//Rahuana
 boolean verificaEEPROM(String valor)
 {
   Serial.print("Lendo EEPROM: ");
@@ -411,8 +442,8 @@ void novaPessoa(String matricula)
   int enderecoParaGravar;
   enderecoParaGravar = pessoaEEPROM(quantidadeDePessoas);
 
-  Serial.print("ESTOU GRAVANDO EM:");
-  Serial.println(enderecoParaGravar);
+  // Serial.print("ESTOU GRAVANDO EM:");
+  // Serial.println(enderecoParaGravar);
   //Salvar nome
   for (int i = 0; i <= 3; i++)
   {
@@ -448,15 +479,19 @@ void imprimeAll()
     {
       buffMatricula[j] = EEPROM.read(posicao + j);
     }
-    Serial.print("Matricula: ");
+
     buffMatricula[4] = '\0';
+    Serial.print("Matricula: ");
+    // Serial.print("M");
     Serial.println(buffMatricula);
+
     for (int j = 4; j <= 13; j++)
     {
       buffEntrada[j - 4] = EEPROM.read(posicao + j);
     }
-    Serial.print("Entrada: ");
     buffEntrada[10] = '\0';
+    Serial.print("Entrada: ");
+    // Serial.print("P");
     Serial.println(buffEntrada);
 
     for (int j = 14; j <= 23; j++)
@@ -465,6 +500,7 @@ void imprimeAll()
     }
     Serial.print("Saida: ");
     buffSaida[10] = '\0';
+    // Serial.print("P");
     Serial.println(buffSaida);
   }
 }
@@ -574,4 +610,116 @@ void limpaTudo()
     EEPROM.write(i, 0);
     EEPROM.commit();
   }
+}
+
+// void relatorioIndependente(char *matricula)
+// {
+//   int quantidadedePessoas = quantidadePessoas();
+//   for (int i = 0; i < quantidadedePessoas; i++)
+//   {
+//     int posicao = pessoaEEPROM(i);
+//     char buffMatricula[5];
+
+//     for (int j = 0; j <= 3; j++)
+//     {
+//       buffMatricula[j] = EEPROM.read(posicao + j);
+//     }
+//     buffMatricula[4] = '\0';
+//     Serial.println(matricula);
+//     Serial.println(buffMatricula);
+
+//     if (strcmp(matricula, buffMatricula) == 0)
+//     {
+
+//       Serial.println(buffMatricula);
+
+//       char buffEntrada[11];
+//       char buffSaida[11];
+
+//       //Varredura da entrada
+//       for (int j = 4; j <= 13; j++)
+//       {
+//         buffEntrada[j - 4] = EEPROM.read(posicao + j);
+//       }
+//       // Serial.print("Entrada: ");
+//       buffEntrada[10] = '\0';
+//       Serial.print("P");
+//       Serial.println(buffEntrada);
+
+//       for (int j = 14; j <= 23; j++)
+//       {
+//         buffSaida[j - 14] = EEPROM.read(posicao + j);
+//       }
+//       // Serial.print("Saida: ");
+//       buffSaida[10] = '\0';
+//       Serial.print("P");
+//       Serial.println(buffSaida);
+//     }
+//   }
+
+//   // int quantidadedePessoas = quantidadePessoas();
+//   // for (int i = 0; i < quantidadedePessoas; i++)
+//   // {
+//   //   int posicao = pessoaEEPROM(i);
+//   //   char buffMatricula[5];
+//   //   char buffEntrada[11];
+//   //   char buffSaida[11];
+
+//   //   for (int j = 0; j <= 3; j++)
+//   //   {
+//   //     buffMatricula[j] = EEPROM.read(posicao + j);
+//   //   }
+//   //   // Serial.print("Matricula: ");
+//   //   buffMatricula[4] = '\0';
+//   //   Serial.println(buffMatricula);
+//   //   for (int j = 4; j <= 13; j++)
+//   //   {
+//   //     buffEntrada[j - 4] = EEPROM.read(posicao + j);
+//   //   }
+//   //   // Serial.print("Entrada: ");
+//   //   buffEntrada[10] = '\0';
+//   //   Serial.print("P");
+//   //   Serial.println(buffEntrada);
+
+//   //   for (int j = 14; j <= 23; j++)
+//   //   {
+//   //     buffSaida[j - 14] = EEPROM.read(posicao + j);
+//   //   }
+//   //   // Serial.print("Saida: ");
+//   //   buffSaida[10] = '\0';
+//   //   Serial.print("P");
+//   //   Serial.println(buffSaida);
+//   // }
+// }
+
+void novaHoraData()
+{
+  String buffAno;
+  String buffMes;
+  String buffDia;
+  String buffHora;
+  String buffMin;
+
+  buffAno = Serial.readStringUntil(',');
+  buffMes = Serial.readStringUntil(',');
+  buffDia = Serial.readStringUntil(',');
+  buffHora = Serial.readStringUntil(',');
+  buffMin = Serial.readStringUntil('#');
+
+  Ano = atoi(buffAno.c_str());
+  Mes = atoi(buffMes.c_str());
+  Dia = atoi(buffDia.c_str());
+  Hora = atoi(buffHora.c_str());
+  Min = atoi(buffMin.c_str());
+
+  mudaHoraPff = true;
+
+  Serial.println(Ano);
+  Serial.println(Mes);
+  Serial.println(Dia);
+  Serial.println(Hora);
+  Serial.println(Min);
+
+  // rtc.adjust(DateTime(2019, 9, 13, 18, 4, 0));
+  //  D2019, 10, 10, 10, 10, 10 #
 }
