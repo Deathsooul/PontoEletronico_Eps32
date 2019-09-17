@@ -45,6 +45,8 @@ int Min;
 
 bool mudaHoraPff = false;
 
+String pessoaQueEntrou;
+
 static int Nucleo = 1; // Nucleo que as Task vao rolar
 
 char data_formatada[64];
@@ -128,7 +130,7 @@ void setup()
   //Inicia a EEPROM
   EEPROM.begin(512);
 
-  limpaTudo();
+  //limpaTudo();
 
   // Serial.println(EEPROM.read(0));
 
@@ -155,7 +157,7 @@ void loop()
   // send data only when you receive data:
   if (Serial.available() > 0)
   {
-    Serial.println("Oi to aqui");
+    //Serial.println("Oi to aqui");
     // read the incoming byte:
     char incomingByte = Serial.read();
 
@@ -226,7 +228,7 @@ void leTeclado()
 
     //SALVA NOVO FUNCIONARIO
     novaPessoa(funcionario);
-    imprimeAll();
+    //imprimeAll();
 
     // EEPROM.writeString(address, funcionario);
     // delay(500);
@@ -237,7 +239,7 @@ void leTeclado()
     // Serial.println(EEPROM.readString(0));
     // Serial.println("Verificando memorias pra frente");
   }
-  if (teclaClicada == 'C')
+  if (teclaClicada == '*')
   {
     imprimeAll();
   }
@@ -248,14 +250,15 @@ void mostraDataHora()
   if (mudaHoraPff == true)
   {
     rtc.adjust(DateTime(Ano, Mes, Dia, Hora, Min, 0));
-
     mudaHoraPff = false;
+    lcd.clear();
   }
   DateTime now = rtc.now();
   unixAgora = now.unixtime();
   if (mostraMensagem == 1)
   {
-    mensagemRecepcao();
+    // mensagemRecepcao();
+    mensagemRecepcaoPro();
     delay(1000);
     mostraMensagem = 0;
     lcd.clear();
@@ -416,6 +419,38 @@ void mensagemRecepcao()
   }
 }
 
+void mensagemRecepcaoPro()
+{
+  DateTime now = rtc.now();
+  if (now.hour() >= 12 && now.hour() < 18)
+  {
+    teste = "Boa tarde!";
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(teste);
+    lcd.setCursor(0, 1);
+    lcd.print(pessoaQueEntrou);
+  }
+  else if (now.hour() >= 18 && now.hour() <= 23)
+  {
+    teste = "Boa noite!";
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(teste);
+    lcd.setCursor(0, 1);
+    lcd.print(pessoaQueEntrou);
+  }
+  else if (now.hour() >= 0 && now.hour() < 12)
+  {
+    teste = "Bom dia!";
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(teste);
+    lcd.setCursor(0, 1);
+    lcd.print(pessoaQueEntrou);
+  }
+}
+
 void naoEcontrada()
 {
   lcd.clear();
@@ -427,7 +462,8 @@ void naoEcontrada()
 
 void encontrada()
 {
-  mensagemRecepcao();
+  // mensagemRecepcao();
+  mensagemRecepcaoPro();
 }
 
 //funcao que sempre passa a posição do proximo bloco de salvamento
@@ -521,14 +557,14 @@ bool verificaFuncionario(char *matricula)
 
     if (strcmp(matricula, buffMatricula) == 0)
     {
-      Serial.println("Entrei");
       pessoaEncontrada = 1;
+      pessoaQueEntrou = buffMatricula;
       preenchePonto(matricula);
       imprimeAll();
       return true;
     }
   }
-  Serial.print("Pessoa nao encontrada");
+  Serial.println("Pessoa nao encontrada");
   pessoaNaoEncontrada = 1;
 }
 
